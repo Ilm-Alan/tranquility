@@ -25,10 +25,11 @@ const usd = (n: number) =>
   });
 
 // If an interpreted plan matches nothing, drop its least important terms until
-// it matches; the chips always show exactly what ran.
+// it matches - all the way to none, since the structured filters still express
+// the request. The chips always show exactly what ran.
 function relaxPlan(plan: QueryPlan, catalog: Catalog): QueryPlan {
   let candidate = plan;
-  while (candidate.terms.length > 1 && runPlan(catalog.items, candidate).length === 0) {
+  while (candidate.terms.length > 0 && runPlan(catalog.items, candidate).length === 0) {
     candidate = { ...candidate, terms: candidate.terms.slice(0, -1) };
   }
   return candidate;
@@ -40,6 +41,9 @@ export default function App() {
   const [queryText, setQueryText] = useState('');
   const [plan, setPlan] = useState<QueryPlan>(emptyPlan());
   const [status, setStatus] = useState<AssistantStatus>('offline');
+  // After a successful interpretation the chips carry the state; typing then
+  // drafts the next utterance instead of live-replacing the plan's terms.
+  const [interpreted, setInterpreted] = useState(false);
 
   useEffect(() => {
     loadCatalog().then(setCatalog, (e: Error) => setLoadError(e.message));
@@ -58,7 +62,7 @@ export default function App() {
 
   const setQuery = (text: string) => {
     setQueryText(text);
-    setPlan((p) => ({ ...p, terms: tokenize(text) }));
+    if (!interpreted) setPlan((p) => ({ ...p, terms: tokenize(text) }));
     if (status === 'failed') setStatus('idle');
   };
 
@@ -68,12 +72,17 @@ export default function App() {
     const query = queryText.trim();
     if (!query) return;
     setStatus('thinking');
-    const interpreted = await interpretQuery(query, catalog);
-    if (interpreted) {
-      setPlan(relaxPlan(interpreted, catalog));
+    const next = await interpretQuery(query, catalog, plan, results);
+    if (next) {
+      setPlan(relaxPlan(next, catalog));
+      setInterpreted(true);
+      setQueryText('');
       setStatus('idle');
     } else {
-      setStatus('failed'); // keyword results are already on screen
+      // Fall back to treating the words as plain keywords, and say so.
+      setPlan((p) => ({ ...p, terms: tokenize(query) }));
+      setInterpreted(false);
+      setStatus('failed');
     }
   };
 
@@ -89,6 +98,7 @@ export default function App() {
   const clearAll = () => {
     setQueryText('');
     setPlan(emptyPlan());
+    setInterpreted(false);
     if (status === 'failed') setStatus('idle');
   };
 
@@ -156,7 +166,9 @@ export default function App() {
             placeholder={
               status === 'offline'
                 ? 'Search the catalog'
-                : 'Search, or describe what you need — "warm light for a reading nook under $100"'
+                : interpreted
+                  ? 'Refine ("cheaper", "more like the second one") or start a new search'
+                  : 'Search, or describe what you need — "warm light for a reading nook under $100"'
             }
             aria-label="Search the catalog"
           />

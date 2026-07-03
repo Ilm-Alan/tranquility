@@ -2,7 +2,7 @@
 // QueryPlan via tool call, which the engine executes like any hand-built one.
 // Every function here degrades to null; the caller falls back to keyword search.
 
-import type { Catalog } from './catalog';
+import type { Catalog, Item } from './catalog';
 import { emptyPlan, type QueryPlan, type SortKey } from './engine';
 
 export type AssistantStatus = 'offline' | 'idle' | 'thinking' | 'failed';
@@ -63,6 +63,22 @@ function systemPrompt(catalog: Catalog): string {
     `Tags: ${catalog.tags.join(', ')}.`,
     'Prefer tags and categories over free terms. Terms are AND-matched substrings, so extra or compound terms shrink results; keep them few and single-word.',
     'Translate only stated constraints. "Under $50" is priceMax 50; "cheap" alone is sort price-asc, not a price bound.',
+    'When a current plan is given, decide: a refinement ("cheaper", "in oak instead", "more like the second one") mutates that plan; a new request replaces it.',
+  ].join('\n');
+}
+
+// Enough context to refine against, cheap enough to send every time.
+function resultsContext(results: Item[], plan: QueryPlan): string | null {
+  if (results.length === 0 && plan.terms.length === 0) return null;
+  const top = results.slice(0, 8).map(
+    (r, i) =>
+      `${i + 1}. ${r.title} (${r.category}, ${r.brand}, tags: ${r.tags.join('/')}, ` +
+      `${r.price !== null ? `$${r.price}` : 'price unknown'})`,
+  );
+  return [
+    `Current plan: ${JSON.stringify(plan)}`,
+    `Top results now: ${top.length ? '' : '(none)'}`,
+    ...top,
   ].join('\n');
 }
 
@@ -103,8 +119,11 @@ interface ContentBlock {
 export async function interpretQuery(
   query: string,
   catalog: Catalog,
+  currentPlan: QueryPlan,
+  currentResults: Item[],
 ): Promise<QueryPlan | null> {
   try {
+    const context = resultsContext(currentResults, currentPlan);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 20_000);
     const res = await fetch('/api/assistant', {
@@ -114,7 +133,12 @@ export async function interpretQuery(
       body: JSON.stringify({
         system: systemPrompt(catalog),
         tools: [planTool(catalog)],
-        messages: [{ role: 'user', content: query }],
+        messages: [
+          {
+            role: 'user',
+            content: context ? `${context}\n\nShopper: ${query}` : query,
+          },
+        ],
       }),
     });
     clearTimeout(timer);
