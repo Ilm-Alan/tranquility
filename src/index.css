@@ -725,3 +725,15 @@ select {
   margin: 0;
   accent-color: var(--ink);
 }
+
+/* --- wordmark: lowercase, tight, one red full stop (the brand's only flair) --- */
+
+.wordmark {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+
+.wordmark-dot {
+  color: var(--signal);
+}

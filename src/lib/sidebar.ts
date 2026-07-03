@@ -7,6 +7,7 @@
 
 import type { Catalog } from './catalog';
 import { emptyPlan, expandTerms, type QueryPlan, type SortKey } from './engine';
+import { catalogDigest } from './digest';
 import { DESIGN_CORPUS, type DesignPrinciple } from './designCorpus';
 import { structuredCall, type ChatMessage } from './llm';
 
@@ -138,7 +139,16 @@ function consultSchema(catalog: Catalog, principles: DesignPrinciple[]): object 
               items: { type: 'string' },
               description: '0-2 extra single lowercase keywords, only if no tag fits',
             },
+            brands: { type: 'array', items: { type: 'string', enum: catalog.brands } },
+            priceMin: { type: ['number', 'null'], description: 'USD floor, e.g. for a splurge pick' },
             priceMax: { type: ['number', 'null'] },
+            minRating: { type: ['number', 'null'], description: '3-5, when review quality is the point' },
+            minReviews: { type: ['number', 'null'], description: 'e.g. 200 for crowd-proven picks' },
+            sort: {
+              type: 'string',
+              enum: ['trust', 'price-asc', 'price-desc', 'newest'],
+              description: 'trust unless the idea calls for cheapest, priciest, or newest',
+            },
             inStockOnly: { type: 'boolean' },
           },
           required: ['title', 'why', 'principle', 'tags', 'categories', 'terms', 'priceMax', 'inStockOnly'],
@@ -214,10 +224,11 @@ export function consultSystem(
   groundedContext: string,
 ): string {
   return [
-    'You are the design assistant for a home goods catalog, embedded next to the search results. You help the shopper think about their space and find pieces for it. Keep replies short and plain-text.',
+    'You are the design assistant for Tranquility, a home goods catalog, embedded next to the search results. You are a designer, not a search engine: have a point of view. Lead each reply with one concrete, opinionated idea (a palette, a pairing, a layout move, a save-vs-splurge split) before anything else. Keep replies short. Style: plain text, no markdown, no em dashes.',
     'When the shopper describes a project or space - even vaguely ("redesigning my garage") - always include best-guess suggestions in the same turn. Ask a clarifying question in the reply if useful, but never instead of suggesting. Only leave suggestions null when the shopper is asking about products already shown.',
-    'Suggestions must be SPECIFIC enough to shop from: one category plus the one or two most specific tags that fit (a suggestion matching a whole category is too broad). The shopper sees the top few products of each suggestion, ranked by trusted reviews.',
-    'Hard rules: products, prices, ratings, and review counts exist ONLY as given in the provided context - cite those freely by name when comparing or answering, but never invent, guess, or extrapolate ones that are not provided. Product suggestions happen only through the suggestions field; a deterministic engine runs them over the real catalog. When you reference design ideas, use the provided principles by name; do not cite sources you were not given.',
+    'Suggestions must be SPECIFIC enough to shop from: one category plus the one or two most specific tags that fit (a suggestion matching a whole category is too broad). Use the full plan fields for cleverness: priceMin for a splurge pick, priceMax against the digest\'s real price tiers for budget picks, minReviews for crowd-proven picks, sort newest for arrivals. Pairs of suggestions that answer each other ("the crowd favorite" / "the same idea for less") are welcome. The shopper sees each suggestion\'s top products ranked by trusted reviews.',
+    'Hard rules: products, prices, ratings, and review counts exist ONLY as given in the catalog digest and context below - cite those freely by name when comparing or answering, but never invent, guess, or extrapolate ones that are not provided. Product suggestions happen only through the suggestions field; a deterministic engine runs them over the real catalog. When you reference design ideas, use the provided principles by name; do not cite sources you were not given.',
+    `Catalog digest (real numbers; use them for budget advice, brand character, standouts):\n${catalogDigest(catalog)}`,
     `Design principles retrieved for this conversation:\n${principles.map((p) => `- ${p.name}: ${p.body}`).join('\n')}`,
     `Catalog vocabulary for suggestion fields:\nCategories: ${catalog.categories.join(', ')}.\nTags: ${catalog.tags.join(', ')}.`,
     space ? `The shopper's space, read from their photo earlier: ${JSON.stringify(space)}` : '',
