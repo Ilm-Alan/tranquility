@@ -66,3 +66,14 @@ export function runPlan(items: Item[], plan: QueryPlan): Item[] {
       (a, b) => Number(b.inStock) - Number(a.inStock) || compare(a, b),
     );
 }
+
+// If a model-built plan matches nothing, drop its least important terms until
+// it matches - all the way to none, since the structured filters still express
+// the request. Whatever ran is what the UI shows.
+export function relaxPlan(items: Item[], plan: QueryPlan): QueryPlan {
+  let candidate = plan;
+  while (candidate.terms.length > 0 && runPlan(items, candidate).length === 0) {
+    candidate = { ...candidate, terms: candidate.terms.slice(0, -1) };
+  }
+  return candidate;
+}

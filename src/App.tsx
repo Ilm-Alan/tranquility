@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadCatalog, type Catalog } from './lib/catalog';
-import { emptyPlan, runPlan, tokenize, type QueryPlan, type SortKey } from './lib/engine';
+import { emptyPlan, relaxPlan, runPlan, tokenize, type QueryPlan, type SortKey } from './lib/engine';
 import {
   checkAssistant,
   interpretQuery,
   type AssistantStatus,
 } from './lib/assistant';
 import { ItemCard } from './components/ItemCard';
+import { Studio } from './components/Studio';
 
 const PAGE_SIZE = 96;
 
@@ -24,17 +25,6 @@ const usd = (n: number) =>
     maximumFractionDigits: Number.isInteger(n) ? 0 : 2,
   });
 
-// If an interpreted plan matches nothing, drop its least important terms until
-// it matches - all the way to none, since the structured filters still express
-// the request. The chips always show exactly what ran.
-function relaxPlan(plan: QueryPlan, catalog: Catalog): QueryPlan {
-  let candidate = plan;
-  while (candidate.terms.length > 0 && runPlan(catalog.items, candidate).length === 0) {
-    candidate = { ...candidate, terms: candidate.terms.slice(0, -1) };
-  }
-  return candidate;
-}
-
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -44,6 +34,7 @@ export default function App() {
   // After a successful interpretation the chips carry the state; typing then
   // drafts the next utterance instead of live-replacing the plan's terms.
   const [interpreted, setInterpreted] = useState(false);
+  const [view, setView] = useState<'catalog' | 'studio'>('catalog');
 
   useEffect(() => {
     loadCatalog().then(setCatalog, (e: Error) => setLoadError(e.message));
@@ -74,7 +65,7 @@ export default function App() {
     setStatus('thinking');
     const next = await interpretQuery(query, catalog, plan, results);
     if (next) {
-      setPlan(relaxPlan(next, catalog));
+      setPlan(relaxPlan(catalog.items, next));
       setInterpreted(true);
       setQueryText('');
       setStatus('idle');
@@ -153,10 +144,41 @@ export default function App() {
   return (
     <main className="page">
       <header className="masthead">
-        <h1>Downshift</h1>
+        <div className="masthead-left">
+          <h1>Downshift</h1>
+          <nav aria-label="Views">
+            <button
+              type="button"
+              className={view === 'catalog' ? 'nav-link nav-active' : 'nav-link'}
+              onClick={() => setView('catalog')}
+            >
+              Catalog
+            </button>
+            <button
+              type="button"
+              className={view === 'studio' ? 'nav-link nav-active' : 'nav-link'}
+              onClick={() => setView('studio')}
+            >
+              Design studio
+            </button>
+          </nav>
+        </div>
         <p>Home goods catalog · {catalog.items.length.toLocaleString('en-US')} items</p>
       </header>
 
+      {view === 'studio' ? (
+        <Studio
+          catalog={catalog}
+          online={status !== 'offline'}
+          openInCatalog={(p) => {
+            setPlan(relaxPlan(catalog.items, p));
+            setInterpreted(true);
+            setQueryText('');
+            setView('catalog');
+          }}
+        />
+      ) : (
+        <>
       <section className="controls" aria-label="Search and filters">
         <form className="controls-row" onSubmit={submitQuery}>
           <input
@@ -260,6 +282,8 @@ export default function App() {
             Clear search and filters
           </button>
         </section>
+      )}
+        </>
       )}
     </main>
   );

@@ -348,3 +348,246 @@ select {
 .empty button:hover {
   border-color: var(--secondary);
 }
+
+/* --- masthead nav --- */
+
+.masthead-left {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+}
+
+.nav-link {
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--secondary);
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  color: var(--ink);
+}
+
+.nav-active {
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* --- design studio --- */
+
+.studio {
+  border-top: 1px solid var(--ink);
+  padding-top: 18px;
+}
+
+.studio-offline {
+  border-top: 1px solid var(--ink);
+  padding: 48px 0;
+  color: var(--secondary);
+  max-width: 56ch;
+}
+
+.studio-intake {
+  display: grid;
+  grid-template-columns: minmax(260px, 420px) 1fr;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.studio-upload {
+  border: 1px solid var(--hairline);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.studio-upload p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--secondary);
+}
+
+.studio-upload img {
+  width: 100%;
+  display: block;
+}
+
+.studio-upload button,
+.studio-chat button {
+  padding: 9px 14px;
+  font-size: 13px;
+  background: var(--ink);
+  color: #fff;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.studio-upload button:disabled,
+.studio-chat button:disabled {
+  background: var(--muted);
+  border-color: var(--muted);
+  cursor: default;
+}
+
+.studio-side label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+
+.studio-side input {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px 11px;
+  font-size: 13.5px;
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+}
+
+.studio-side input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.studio-status {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: var(--secondary);
+}
+
+.space-read {
+  margin: 16px 0 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.space-read div {
+  display: flex;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 12.5px;
+}
+
+.space-read dt {
+  flex: 0 0 72px;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  padding-top: 1px;
+}
+
+.space-read dd {
+  margin: 0;
+}
+
+.shelf {
+  margin-bottom: 26px;
+}
+
+.shelf-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.shelf-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.shelf-head p {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--secondary);
+  max-width: 90ch;
+}
+
+.principle {
+  color: var(--ink);
+  font-weight: 500;
+  cursor: help;
+}
+
+.shelf-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.shelf-actions button {
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--ground);
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.shelf-actions button:hover {
+  border-color: var(--secondary);
+}
+
+.shelf-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+}
+
+.studio-chat {
+  border-top: 1px solid var(--ink);
+  padding-top: 14px;
+  max-width: 820px;
+}
+
+.turn {
+  margin: 0 0 10px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--ink);
+  white-space: pre-wrap;
+}
+
+.turn-user {
+  color: var(--secondary);
+}
+
+.turn-user::before {
+  content: 'You — ';
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.studio-chat form {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.studio-chat form input {
+  flex: 1;
+  padding: 9px 11px;
+  font-size: 13.5px;
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+}
+
+.studio-chat form input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
