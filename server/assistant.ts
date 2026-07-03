@@ -3,7 +3,7 @@
 // client bundle and the public repo. The client sends messages (+ optional
 // images per message); the server contributes credentials, model, and limits.
 //
-// Structured output strategy, verified against ollama.com 2026-07-03: the
+// Structured output strategy, verified against ollama.com, July 2026: the
 // cloud ignores full JSON-schema `format` objects (grammar enforcement is
 // local-only for now) but honors `format: "json"`, and the model complies with
 // a schema stated in the system prompt. `think: false` suppresses thinking

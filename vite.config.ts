@@ -48,8 +48,8 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       assistantProxy({
-        baseUrl: env.ANTHROPIC_BASE_URL,
-        authToken: env.ANTHROPIC_AUTH_TOKEN,
+        baseUrl: env.LLM_BASE_URL,
+        authToken: env.LLM_API_KEY,
         model: env.LLM_MODEL,
       }),
     ],
