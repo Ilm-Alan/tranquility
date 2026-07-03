@@ -221,3 +221,16 @@ body {
   background: #fff;
   cursor: pointer;
 }
+
+.assistant-status {
+  margin: 2px 0 8px;
+  font-size: 13px;
+  color: #555;
+  min-height: 18px;
+}
+
+.chip-plan {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+}

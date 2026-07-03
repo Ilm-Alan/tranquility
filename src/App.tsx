@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadCatalog, type Catalog } from './lib/catalog';
-import { emptyPlan, runPlan, tokenize, type SortKey } from './lib/engine';
+import { emptyPlan, runPlan, tokenize, type QueryPlan, type SortKey } from './lib/engine';
+import {
+  checkAssistant,
+  interpretQuery,
+  type AssistantStatus,
+} from './lib/assistant';
 import { ItemCard } from './components/ItemCard';
 
 const PAGE_SIZE = 96;
@@ -12,22 +17,34 @@ const SORT_LABELS: Record<SortKey, string> = {
   newest: 'Newest',
 };
 
+const usd = (n: number) =>
+  n.toLocaleString('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: Number.isInteger(n) ? 0 : 2,
+  });
+
+// If an interpreted plan matches nothing, drop its least important terms until
+// it matches; the chips always show exactly what ran.
+function relaxPlan(plan: QueryPlan, catalog: Catalog): QueryPlan {
+  let candidate = plan;
+  while (candidate.terms.length > 1 && runPlan(catalog.items, candidate).length === 0) {
+    candidate = { ...candidate, terms: candidate.terms.slice(0, -1) };
+  }
+  return candidate;
+}
+
 export default function App() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
-  const [categories, setCategories] = useState<string[]>([]);
-  const [inStockOnly, setInStockOnly] = useState(false);
-  const [sort, setSort] = useState<SortKey>('trust');
+  const [plan, setPlan] = useState<QueryPlan>(emptyPlan());
+  const [status, setStatus] = useState<AssistantStatus>('offline');
 
   useEffect(() => {
     loadCatalog().then(setCatalog, (e: Error) => setLoadError(e.message));
+    checkAssistant().then((ok) => setStatus(ok ? 'idle' : 'offline'));
   }, []);
-
-  const plan = useMemo(
-    () => ({ ...emptyPlan(), terms: tokenize(queryText), categories, inStockOnly, sort }),
-    [queryText, categories, inStockOnly, sort],
-  );
 
   const results = useMemo(
     () => (catalog ? runPlan(catalog.items, plan) : []),
@@ -39,15 +56,40 @@ export default function App() {
   useEffect(() => setLimit(PAGE_SIZE), [plan]);
   const visible = results.slice(0, limit);
 
+  const setQuery = (text: string) => {
+    setQueryText(text);
+    setPlan((p) => ({ ...p, terms: tokenize(text) }));
+    if (status === 'failed') setStatus('idle');
+  };
+
+  const submitQuery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catalog || status === 'offline' || status === 'thinking') return;
+    const query = queryText.trim();
+    if (!query) return;
+    setStatus('thinking');
+    const interpreted = await interpretQuery(query, catalog);
+    if (interpreted) {
+      setPlan(relaxPlan(interpreted, catalog));
+      setStatus('idle');
+    } else {
+      setStatus('failed'); // keyword results are already on screen
+    }
+  };
+
+  const patchPlan = (patch: Partial<QueryPlan>) => setPlan((p) => ({ ...p, ...patch }));
+
   const toggleCategory = (c: string) =>
-    setCategories((prev) =>
-      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
-    );
+    patchPlan({
+      categories: plan.categories.includes(c)
+        ? plan.categories.filter((x) => x !== c)
+        : [...plan.categories, c],
+    });
 
   const clearAll = () => {
     setQueryText('');
-    setCategories([]);
-    setInStockOnly(false);
+    setPlan(emptyPlan());
+    if (status === 'failed') setStatus('idle');
   };
 
   if (loadError) {
@@ -65,7 +107,38 @@ export default function App() {
     );
   }
 
-  const filtered = queryText !== '' || categories.length > 0 || inStockOnly;
+  // Chips for the plan fields that have no dedicated control; category buttons
+  // and the stock toggle already show their own state.
+  const chips: { label: string; remove: () => void }[] = [
+    ...plan.terms.map((t) => ({
+      label: t,
+      remove: () => {
+        const terms = plan.terms.filter((x) => x !== t);
+        patchPlan({ terms });
+        setQueryText(terms.join(' '));
+      },
+    })),
+    ...plan.brands.map((b) => ({
+      label: b,
+      remove: () => patchPlan({ brands: plan.brands.filter((x) => x !== b) }),
+    })),
+    ...plan.tags.map((t) => ({
+      label: `#${t}`,
+      remove: () => patchPlan({ tags: plan.tags.filter((x) => x !== t) }),
+    })),
+    ...(plan.priceMin !== null
+      ? [{ label: `Over ${usd(plan.priceMin)}`, remove: () => patchPlan({ priceMin: null }) }]
+      : []),
+    ...(plan.priceMax !== null
+      ? [{ label: `Under ${usd(plan.priceMax)}`, remove: () => patchPlan({ priceMax: null }) }]
+      : []),
+    ...(plan.minRating !== null
+      ? [{ label: `Rated ${plan.minRating}+`, remove: () => patchPlan({ minRating: null }) }]
+      : []),
+  ];
+
+  const filtered =
+    chips.length > 0 || plan.categories.length > 0 || plan.inStockOnly;
 
   return (
     <main className="page">
@@ -75,17 +148,21 @@ export default function App() {
       </header>
 
       <section className="controls" aria-label="Search and filters">
-        <div className="controls-row">
+        <form className="controls-row" onSubmit={submitQuery}>
           <input
             type="search"
             value={queryText}
-            onChange={(e) => setQueryText(e.target.value)}
-            placeholder="Search the catalog"
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={
+              status === 'offline'
+                ? 'Search the catalog'
+                : 'Search, or describe what you need — "warm light for a reading nook under $100"'
+            }
             aria-label="Search the catalog"
           />
           <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortKey)}
+            value={plan.sort}
+            onChange={(e) => patchPlan({ sort: e.target.value as SortKey })}
             aria-label="Sort results"
           >
             {Object.entries(SORT_LABELS).map(([key, label]) => (
@@ -94,14 +171,35 @@ export default function App() {
               </option>
             ))}
           </select>
-        </div>
+        </form>
+        <p className="assistant-status" aria-live="polite">
+          {status === 'offline' && 'Assistant offline. Keyword search is active.'}
+          {status === 'thinking' && 'Interpreting your request… keyword matches shown meanwhile.'}
+          {status === 'failed' && 'Could not interpret that. Showing keyword matches.'}
+          {status === 'idle' && ' '}
+        </p>
+        {chips.length > 0 && (
+          <div className="controls-row chips" aria-label="Active constraints">
+            {chips.map(({ label, remove }) => (
+              <button
+                key={label}
+                type="button"
+                className="chip chip-plan"
+                onClick={remove}
+                title="Remove this constraint"
+              >
+                {label} ×
+              </button>
+            ))}
+          </div>
+        )}
         <div className="controls-row chips">
           {catalog.categories.map((c) => (
             <button
               key={c}
               type="button"
-              className={categories.includes(c) ? 'chip chip-active' : 'chip'}
-              aria-pressed={categories.includes(c)}
+              className={plan.categories.includes(c) ? 'chip chip-active' : 'chip'}
+              aria-pressed={plan.categories.includes(c)}
               onClick={() => toggleCategory(c)}
             >
               {c}
@@ -110,8 +208,8 @@ export default function App() {
           <label className="chip chip-toggle">
             <input
               type="checkbox"
-              checked={inStockOnly}
-              onChange={(e) => setInStockOnly(e.target.checked)}
+              checked={plan.inStockOnly}
+              onChange={(e) => patchPlan({ inStockOnly: e.target.checked })}
             />
             In stock only
           </label>
