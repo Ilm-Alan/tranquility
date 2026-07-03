@@ -147,9 +147,7 @@ export default function App() {
   return (
     <main className="page">
       <header className="masthead">
-        <h1 className="wordmark">
-          tranquility<span className="wordmark-dot">.</span>
-        </h1>
+        <h1 className="wordmark">tranquility</h1>
       </header>
 
       <div className="layout">
