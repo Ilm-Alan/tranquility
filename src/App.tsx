@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { loadCatalog, type Catalog } from './lib/catalog';
+import { loadCatalog, type Availability, type Catalog } from './lib/catalog';
 import { emptyPlan, expandTerms, runPlan, tokenize, type QueryPlan, type SortKey } from './lib/engine';
 import { checkAssistant } from './lib/llm';
 import { ItemCard } from './components/ItemCard';
@@ -16,6 +16,12 @@ const SORT_LABELS: Record<SortKey, string> = {
 
 const RATING_STEPS = [3, 3.5, 4, 4.5];
 const REVIEW_STEPS = [50, 200, 1000];
+
+const AVAILABILITY_CELLS: { key: Availability; label: string }[] = [
+  { key: 'now', label: 'In stock' },
+  { key: 'soon', label: 'Coming soon' },
+  { key: 'out', label: 'Sold out' },
+];
 
 const usd = (n: number) =>
   n.toLocaleString('en-US', {
@@ -65,6 +71,20 @@ export default function App() {
         : [...plan.categories, c],
     });
 
+  // At least one availability state stays on; a zero-state view means nothing.
+  const toggleAvailability = (a: Availability) => {
+    const next = plan.availability.includes(a)
+      ? plan.availability.filter((x) => x !== a)
+      : [...plan.availability, a];
+    if (next.length > 0) patchPlan({ availability: next });
+  };
+
+  const availabilityCounts = useMemo(() => {
+    const counts = { now: 0, soon: 0, out: 0 };
+    for (const i of catalog?.items ?? []) counts[i.availability]++;
+    return counts;
+  }, [catalog]);
+
   const clearAll = () => {
     setQueryText('');
     setPlan(emptyPlan());
@@ -111,13 +131,18 @@ export default function App() {
       : []),
   ];
 
+  const defaultAvailability =
+    plan.availability.length === 2 &&
+    plan.availability.includes('now') &&
+    plan.availability.includes('soon');
+
   const filtered =
     queryText.trim() !== '' ||
     chips.length > 0 ||
     plan.categories.length > 0 ||
     plan.minRating !== null ||
     plan.minReviews !== null ||
-    !plan.inStockOnly;
+    !defaultAvailability;
 
   return (
     <main className="page">
@@ -219,14 +244,23 @@ export default function App() {
                     </option>
                   ))}
                 </select>
-                <label className="stock-label">
-                  <input
-                    type="checkbox"
-                    checked={!plan.inStockOnly}
-                    onChange={(e) => patchPlan({ inStockOnly: !e.target.checked })}
-                  />
-                  Include temporarily out of stock
-                </label>
+                <div className="avail-rail" role="group" aria-label="Availability">
+                  {AVAILABILITY_CELLS.map(({ key, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      className={
+                        plan.availability.includes(key)
+                          ? 'avail-cell avail-active'
+                          : 'avail-cell'
+                      }
+                      aria-pressed={plan.availability.includes(key)}
+                      onClick={() => toggleAvailability(key)}
+                    >
+                      {label} {availabilityCounts[key].toLocaleString('en-US')}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </section>

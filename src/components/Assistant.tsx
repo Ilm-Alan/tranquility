@@ -65,7 +65,7 @@ export function Assistant({
           (i) =>
             `  - ${i.title} (${i.price !== null ? `$${i.price.toFixed(2)}` : 'price unknown'}, ` +
             `${i.reviewed ? `${(i.rating as number).toFixed(1)} from ${i.reviews} reviews` : 'no reviews yet'}, ` +
-            `${i.inStock ? 'in stock' : 'sold out'})`,
+            `${i.availability === 'now' ? 'in stock' : i.availability === 'soon' ? 'coming soon' : 'sold out'})`,
         );
         return `${suggestion.title} (${items.length} matches):\n${lines.join('\n')}`;
       })
@@ -278,7 +278,8 @@ function SuggestionShelf({
               {item.reviewed
                 ? `${(item.rating as number).toFixed(1)} (${item.reviews.toLocaleString('en-US')})`
                 : 'No reviews yet'}
-              {!item.inStock && ' · Sold out'}
+              {item.availability === 'out' && ' · Sold out'}
+              {item.availability === 'soon' && ' · Coming soon'}
             </span>
           </li>
         ))}

@@ -31,7 +31,7 @@ function topCounts(values: string[], k: number): string[] {
 }
 
 function standout(items: Item[]): Item | null {
-  const reviewed = items.filter((i) => i.reviewed && i.inStock);
+  const reviewed = items.filter((i) => i.reviewed && i.availability === 'now');
   if (reviewed.length === 0) return null;
   return reviewed.reduce((best, i) => (i.trust > best.trust ? i : best));
 }
@@ -47,12 +47,12 @@ export function catalogDigest(catalog: Catalog): string {
   const { items } = catalog;
   const today = new Date().toISOString().slice(0, 10);
   const all = prices(items);
-  const inStock = items.filter((i) => i.inStock).length;
+  const buyable = items.filter((i) => i.availability === 'now').length;
   const unreviewed = items.filter((i) => !i.reviewed).length;
-  const comingSoon = items.filter((i) => i.comingSoon).length;
+  const comingSoon = items.filter((i) => i.availability === 'soon').length;
 
   const lines: string[] = [
-    `Catalog: ${items.length} items, ${inStock} in stock, ${comingSoon} marked coming soon, ${unreviewed} with no reviews yet.`,
+    `Catalog: ${items.length} items, ${buyable} in stock, ${comingSoon} marked coming soon, ${unreviewed} with no reviews yet.`,
     `Prices overall: typical ${money(quantile(all, 0.5))}, budget tier under ${money(quantile(all, 0.2))}, premium tier over ${money(quantile(all, 0.8))}. This catalog runs expensive; respect the shopper's numbers, not normal retail instincts.`,
   ];
 
@@ -79,7 +79,7 @@ export function catalogDigest(catalog: Catalog): string {
   }
 
   const recent = items
-    .filter((i) => !i.comingSoon && i.releasedAt > shiftDate(today, -120))
+    .filter((i) => i.availability !== 'soon' && i.releasedAt > shiftDate(today, -120))
     .length;
   lines.push(
     '',

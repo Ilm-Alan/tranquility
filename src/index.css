@@ -737,3 +737,35 @@ select {
 .wordmark-dot {
   color: var(--signal);
 }
+
+/* --- availability rail: the category rail's idiom, one size down --- */
+
+.avail-rail {
+  display: flex;
+  border: 1px solid var(--ink);
+}
+
+.avail-cell {
+  padding: 7px 11px;
+  font-size: 12px;
+  background: var(--ground);
+  border: none;
+  border-left: 1px solid var(--hairline);
+  cursor: pointer;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.avail-cell:first-child {
+  border-left: none;
+}
+
+.avail-cell:hover {
+  background: var(--field);
+}
+
+.avail-active,
+.avail-active:hover {
+  background: var(--ink);
+  color: #fff;
+}

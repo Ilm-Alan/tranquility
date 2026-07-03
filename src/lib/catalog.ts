@@ -18,6 +18,10 @@ export interface RawItem {
   description: string;
 }
 
+// One availability state per item: a future release is 'soon' whatever its
+// stock flag says (you can't be sold out of something that isn't out).
+export type Availability = 'now' | 'soon' | 'out';
+
 export interface Item {
   id: number;
   title: string; // display-cleaned; raw title stays in searchText
@@ -30,7 +34,7 @@ export interface Item {
   reviewed: boolean; // false when rating is null OR reviews is 0
   inStock: boolean;
   releasedAt: string;
-  comingSoon: boolean;
+  availability: Availability;
   image: string | null;
   description: string;
   searchText: string;
@@ -88,7 +92,7 @@ export function normalize(raw: RawItem[], now = new Date()): Catalog {
       reviewed: isReviewed,
       inStock: r.inStock,
       releasedAt: r.releasedAt,
-      comingSoon: r.releasedAt > today,
+      availability: r.releasedAt > today ? 'soon' : r.inStock ? 'now' : 'out',
       image: r.image,
       description: r.description,
       searchText: [r.title, r.brand, r.category, r.tags.join(' '), r.description]

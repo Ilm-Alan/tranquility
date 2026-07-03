@@ -4,12 +4,21 @@ import type { Item } from '../lib/catalog';
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const count = new Intl.NumberFormat('en-US');
 
+// "Coming Dec 2026" beats "Coming soon": the date is right there in the data.
+export function arrivalLabel(item: Item): string {
+  const [y, m, d] = item.releasedAt.split('-').map(Number);
+  const month = new Date(y, m - 1, d).toLocaleString('en-US', { month: 'short' });
+  return `Coming ${month} ${y}`;
+}
+
 export function ItemCard({ item }: { item: Item }) {
   const [imageFailed, setImageFailed] = useState(false);
   const showImage = item.image !== null && !imageFailed;
 
   return (
-    <article className={`card${item.inStock ? '' : ' card-unavailable'}`}>
+    <article
+      className={`card${item.availability === 'out' ? ' card-unavailable' : ''}`}
+    >
       <div className="card-media">
         {showImage ? (
           <img
@@ -24,8 +33,8 @@ export function ItemCard({ item }: { item: Item }) {
             <small>No image</small>
           </div>
         )}
-        {!item.inStock && <span className="badge badge-out">Sold out</span>}
-        {item.inStock && item.comingSoon && <span className="badge">Coming soon</span>}
+        {item.availability === 'out' && <span className="badge badge-out">Sold out</span>}
+        {item.availability === 'soon' && <span className="badge">{arrivalLabel(item)}</span>}
       </div>
       <div className="card-body">
         <p className="card-meta">

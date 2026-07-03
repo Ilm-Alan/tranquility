@@ -5,7 +5,7 @@
 // whitelisted against the real catalog and executed by the engine, so every
 // product shown is real. The model invents nothing the validator would keep.
 
-import type { Catalog } from './catalog';
+import type { Availability, Catalog } from './catalog';
 import { emptyPlan, expandTerms, type QueryPlan, type SortKey } from './engine';
 import { catalogDigest } from './digest';
 import { DESIGN_CORPUS, type DesignPrinciple } from './designCorpus';
@@ -43,7 +43,11 @@ export function validatePlan(input: unknown, catalog: Catalog): QueryPlan {
     rating !== null ? Math.min(5, Math.max(3, Math.round(rating * 2) / 2)) : null;
   const reviews = bound(raw.minReviews);
   plan.minReviews = reviews !== null ? Math.round(reviews) : null;
-  plan.inStockOnly = raw.inStockOnly !== false; // in stock unless asked otherwise
+  const availability = asStrings(raw.availability).filter(
+    (a): a is Availability => a === 'now' || a === 'soon' || a === 'out',
+  );
+  // Suggestions default to buyable only; the model adds 'soon' deliberately.
+  plan.availability = availability.length > 0 ? availability : ['now'];
   plan.sort = SORT_KEYS.includes(raw.sort as SortKey) ? (raw.sort as SortKey) : 'trust';
   return plan;
 }
@@ -149,9 +153,14 @@ function consultSchema(catalog: Catalog, principles: DesignPrinciple[]): object 
               enum: ['trust', 'price-asc', 'price-desc', 'newest'],
               description: 'trust unless the idea calls for cheapest, priciest, or newest',
             },
-            inStockOnly: { type: 'boolean' },
+            availability: {
+              type: 'array',
+              items: { type: 'string', enum: ['now', 'soon', 'out'] },
+              description:
+                'Default ["now"] (buyable). Add "soon" for upcoming releases, e.g. a new-arrivals idea.',
+            },
           },
-          required: ['title', 'why', 'principle', 'tags', 'categories', 'terms', 'priceMax', 'inStockOnly'],
+          required: ['title', 'why', 'principle', 'tags', 'categories', 'terms', 'priceMax'],
         },
       },
       followups: {

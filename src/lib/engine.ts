@@ -2,7 +2,7 @@
 // keywords, clicked filters, and (later) the AI's reading of a request - compiles
 // to the same QueryPlan, and this module is the only thing that executes one.
 
-import type { Item } from './catalog';
+import type { Availability, Item } from './catalog';
 
 export type SortKey = 'trust' | 'price-asc' | 'price-desc' | 'newest';
 
@@ -15,7 +15,7 @@ export interface QueryPlan {
   priceMax: number | null;
   minRating: number | null;
   minReviews: number | null;
-  inStockOnly: boolean;
+  availability: Availability[]; // never empty; states included in results
   sort: SortKey;
 }
 
@@ -29,7 +29,8 @@ export function emptyPlan(): QueryPlan {
     priceMax: null,
     minRating: null,
     minReviews: null,
-    inStockOnly: true, // shoppers see what they can buy; sold-out is opt-in
+    // Buyable and upcoming are browsable by default; sold-out is opt-in.
+    availability: ['now', 'soon'],
     sort: 'trust',
   };
 }
@@ -115,9 +116,12 @@ function matches(item: Item, plan: QueryPlan): boolean {
   if (plan.priceMax !== null && (item.price === null || item.price > plan.priceMax)) return false;
   if (plan.minRating !== null && (!item.reviewed || (item.rating as number) < plan.minRating)) return false;
   if (plan.minReviews !== null && item.reviews < plan.minReviews) return false;
-  if (plan.inStockOnly && !item.inStock) return false;
+  if (!plan.availability.includes(item.availability)) return false;
   return true;
 }
+
+// What you can buy today always outranks what you can't, whatever the sort.
+const AVAILABILITY_RANK: Record<Availability, number> = { now: 0, soon: 1, out: 2 };
 
 const comparators: Record<SortKey, (a: Item, b: Item) => number> = {
   trust: (a, b) => b.trust - a.trust || b.reviews - a.reviews,
@@ -131,8 +135,9 @@ export function runPlan(items: Item[], plan: QueryPlan): Item[] {
   return items
     .filter((i) => matches(i, plan))
     .sort(
-      // Sold-out items stay findable but never outrank what you can buy today.
-      (a, b) => Number(b.inStock) - Number(a.inStock) || compare(a, b),
+      (a, b) =>
+        AVAILABILITY_RANK[a.availability] - AVAILABILITY_RANK[b.availability] ||
+        compare(a, b),
     );
 }
 
