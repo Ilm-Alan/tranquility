@@ -123,7 +123,6 @@ export default function App() {
     <main className="page">
       <header className="masthead">
         <h1>Mantel</h1>
-        <p>Home goods catalog · {catalog.items.length.toLocaleString('en-US')} items</p>
       </header>
 
       <div className="layout">

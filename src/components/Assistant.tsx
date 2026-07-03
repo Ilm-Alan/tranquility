@@ -140,9 +140,8 @@ export function Assistant({
       <div className="sidebar-body" ref={bodyRef}>
         {turns.length === 0 && (
           <p className="sidebar-hint">
-            Describe what you're working on — "I'm thinking of redesigning my
-            garage" — or attach a photo of the space. Suggestions come from the
-            real catalog.
+            Working on a room? Tell me, even something as loose as "rethinking
+            the garage". A photo helps too.
           </p>
         )}
         {turns.map((turn, i) =>
