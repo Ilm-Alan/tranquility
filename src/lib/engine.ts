@@ -109,7 +109,8 @@ function matches(item: Item, plan: QueryPlan): boolean {
   if (plan.terms.some((t) => !item.searchText.includes(t))) return false;
   if (plan.categories.length && !plan.categories.includes(item.category)) return false;
   if (plan.brands.length && !plan.brands.includes(item.brand)) return false;
-  if (plan.tags.length && !plan.tags.some((t) => item.tags.includes(t))) return false;
+  // Tags AND: "marble" plus "tray" means marble trays, not marble-or-tray.
+  if (plan.tags.some((t) => !item.tags.includes(t))) return false;
   // Price bounds exclude unknown prices: an item we can't price doesn't
   // qualify for "under $50", and a rating floor needs actual reviews.
   if (plan.priceMin !== null && (item.price === null || item.price < plan.priceMin)) return false;
@@ -141,13 +142,16 @@ export function runPlan(items: Item[], plan: QueryPlan): Item[] {
     );
 }
 
-// If a model-built plan matches nothing, drop its least important terms until
-// it matches - all the way to none, since the structured filters still express
-// the request. Whatever ran is what the UI shows.
+// If a model-built plan matches nothing, drop its least important constraints
+// until it matches: free terms first, then trailing tags. The structured core
+// still expresses the request, and whatever ran is what the UI shows.
 export function relaxPlan(items: Item[], plan: QueryPlan): QueryPlan {
   let candidate = plan;
   while (candidate.terms.length > 0 && runPlan(items, candidate).length === 0) {
     candidate = { ...candidate, terms: candidate.terms.slice(0, -1) };
+  }
+  while (candidate.tags.length > 1 && runPlan(items, candidate).length === 0) {
+    candidate = { ...candidate, tags: candidate.tags.slice(0, -1) };
   }
   return candidate;
 }

@@ -229,6 +229,16 @@ function validateConsult(
         s.plan.terms.length > 0 || s.plan.tags.length > 0 || s.plan.categories.length > 0,
     )
     .slice(0, 5);
+  // Self-consistency: a reply that promises products while the suggestions
+  // field is empty is an invalid answer, not a stylistic choice. Failing it
+  // here makes the retry ask again instead of rendering a broken promise.
+  if (
+    suggestions.length === 0 &&
+    /\bhere (are|is)\b|\bthese (should|will|can)\b|\bI(?:'| a)m (showing|suggesting)\b/i.test(r.reply)
+  ) {
+    return null;
+  }
+
   return {
     reply: r.reply,
     space: validateSpace(r.space),
@@ -247,9 +257,11 @@ export function consultSystem(
   groundedContext: string,
 ): string {
   return [
-    'You are the design assistant for Tranquility, a home goods catalog, embedded next to the search results. You are a designer, not a search engine: have a point of view. Lead each reply with one concrete, opinionated idea (a palette, a pairing, a layout move, a save-vs-splurge split) before anything else. Keep replies short. Style: plain text, no markdown, no em dashes.',
+    'You are the design assistant for Tranquility, a home goods catalog, embedded next to the search results. You are a designer, not a search engine: have a point of view. Open with the idea itself, stated plainly, as a designer would say it out loud. Never announce or label it ("concrete idea:", "my suggestion:") and never echo these instructions. Keep replies short. Style: plain text, no markdown, no em dashes.',
     'When the shopper describes a project or space - even vaguely ("redesigning my garage") - always include best-guess suggestions in the same turn. Ask a clarifying question in the reply if useful, but never instead of suggesting. When the shopper explicitly asks to see or show products ("show me hooks and benches"), suggestions are MANDATORY that turn. Only leave suggestions null when they are asking about products already shown.',
     'Suggest only product kinds the vocabulary actually carries; if the natural idea (say, a cart) has no tag, choose the nearest real kind and say so in the reply. If the context shows a previous suggestion matched 0 products, adjust it (raise the cap, change the kind) and acknowledge that.',
+    'Consistency rule: if your reply says or implies you are showing products ("here are...", "these should work"), the suggestions field MUST contain them. Words never substitute for suggestions.',
+    'How plans combine: every constraint ANDs together, including each tag. "Marble tray" is tags ["marble", "tray"]. Never conclude something is unavailable because no single tag names it; combine tags instead.',
     'Suggestions must be SPECIFIC enough to shop from: one category plus the one or two most specific tags that fit (a suggestion matching a whole category is too broad). Use the full plan fields for cleverness: priceMin for a splurge pick, priceMax against the digest\'s real price tiers for budget picks, minReviews for crowd-proven picks, sort newest for arrivals. Pairs of suggestions that answer each other ("the crowd favorite" / "the same idea for less") are welcome. The shopper sees each suggestion\'s top products ranked by trusted reviews.',
     'Hard rules: products, prices, ratings, and review counts exist ONLY as given in the catalog digest and context below - cite those freely by name when comparing or answering, but never invent, guess, or extrapolate ones that are not provided. Product suggestions happen only through the suggestions field; a deterministic engine runs them over the real catalog. When you reference design ideas, use the provided principles by name; do not cite sources you were not given.',
     `Catalog digest (real numbers; use them for budget advice, brand character, standouts):\n${catalogDigest(catalog)}`,
@@ -271,11 +283,21 @@ export async function consult(
     .concat(space ? [JSON.stringify(space)] : [])
     .join(' ');
   const principles = retrievePrinciples(conversationText);
+  // "Show me X" answered without suggestions is a wrong answer, whatever the
+  // prose says; fail it so the retry gets a second chance to comply.
+  const lastUser = [...history].reverse().find((m) => m.role === 'user');
+  const showIntent = /\b(show|find|give) (me|us|some)\b|\bwhat (do you have|are my options)\b/i.test(
+    lastUser?.content ?? '',
+  );
   return structuredCall(
     consultSystem(catalog, principles, space, groundedContext),
     consultSchema(catalog, principles),
     history,
-    (raw) => validateConsult(raw, catalog, principles),
+    (raw) => {
+      const result = validateConsult(raw, catalog, principles);
+      if (result && showIntent && result.suggestions.length === 0) return null;
+      return result;
+    },
   );
 }
 
