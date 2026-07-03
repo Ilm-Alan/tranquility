@@ -278,6 +278,16 @@ select {
   line-height: 1.35;
 }
 
+.card-desc {
+  margin: 0 0 5px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .card-rating {
   margin: 0;
   font-size: 12.5px;

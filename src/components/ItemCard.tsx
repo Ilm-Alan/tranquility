@@ -41,6 +41,7 @@ export function ItemCard({ item }: { item: Item }) {
           {item.category} · {item.brand}
         </p>
         <h3>{item.title}</h3>
+        {item.description && <p className="card-desc">{item.description}</p>}
         {item.reviewed ? (
           <p className="card-rating">
             <strong>{(item.rating as number).toFixed(1)}</strong> ·{' '}

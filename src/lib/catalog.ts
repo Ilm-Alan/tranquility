@@ -13,9 +13,9 @@ export interface RawItem {
   inStock: boolean;
   releasedAt: string;
   image: string | null;
-  imageWidth: number;
-  imageHeight: number;
-  description: string;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  description: string | null;
 }
 
 // One availability state per item: a future release is 'soon' whatever its
@@ -36,7 +36,7 @@ export interface Item {
   releasedAt: string;
   availability: Availability;
   image: string | null;
-  description: string;
+  description: string | null;
   searchText: string;
   trust: number;
 }
@@ -95,7 +95,7 @@ export function normalize(raw: RawItem[], now = new Date()): Catalog {
       availability: r.releasedAt > today ? 'soon' : r.inStock ? 'now' : 'out',
       image: r.image,
       description: r.description,
-      searchText: [r.title, r.brand, r.category, r.tags.join(' '), r.description]
+      searchText: [r.title, r.brand, r.category, r.tags.join(' '), r.description ?? '']
         .join(' ')
         .toLowerCase(),
       trust: isReviewed

@@ -65,7 +65,8 @@ export function Assistant({
           (i) =>
             `  - ${i.title} (${i.price !== null ? `$${i.price.toFixed(2)}` : 'price unknown'}, ` +
             `${i.reviewed ? `${(i.rating as number).toFixed(1)} from ${i.reviews} reviews` : 'no reviews yet'}, ` +
-            `${i.availability === 'now' ? 'in stock' : i.availability === 'soon' ? 'coming soon' : 'sold out'})`,
+            `${i.availability === 'now' ? 'in stock' : i.availability === 'soon' ? 'coming soon' : 'sold out'}` +
+            `${i.description ? `, "${i.description}"` : ''})`,
         );
         return `${suggestion.title} (${items.length} matches):\n${lines.join('\n')}`;
       })
