@@ -24,9 +24,23 @@ export function validatePlan(input: unknown, catalog: Catalog): QueryPlan {
   const bound = (v: unknown): number | null =>
     typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
 
-  plan.categories = asStrings(raw.categories).filter((c) => catalog.categories.includes(c));
+  // Whitelisted, but plural-tolerant: the model says "hooks", the tag is
+  // "hook". Normalizing a plural onto the real vocabulary is not invention.
+  const singular = (w: string) =>
+    w.endsWith('es') && w.length > 4 ? w.slice(0, -2) : w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
+  const matchVocab = (values: string[], vocab: string[]) =>
+    values
+      .map((v) => {
+        const lower = v.toLowerCase();
+        return vocab.find(
+          (t) => t.toLowerCase() === lower || t.toLowerCase() === singular(lower),
+        );
+      })
+      .filter((v): v is string => v !== undefined);
+
+  plan.categories = matchVocab(asStrings(raw.categories), catalog.categories);
   plan.brands = asStrings(raw.brands).filter((b) => catalog.brands.includes(b));
-  plan.tags = asStrings(raw.tags).filter((t) => catalog.tags.includes(t));
+  plan.tags = matchVocab(asStrings(raw.tags), catalog.tags);
   plan.terms = expandTerms(
     catalog.vocabulary,
     [...new Set(
@@ -234,7 +248,8 @@ export function consultSystem(
 ): string {
   return [
     'You are the design assistant for Tranquility, a home goods catalog, embedded next to the search results. You are a designer, not a search engine: have a point of view. Lead each reply with one concrete, opinionated idea (a palette, a pairing, a layout move, a save-vs-splurge split) before anything else. Keep replies short. Style: plain text, no markdown, no em dashes.',
-    'When the shopper describes a project or space - even vaguely ("redesigning my garage") - always include best-guess suggestions in the same turn. Ask a clarifying question in the reply if useful, but never instead of suggesting. Only leave suggestions null when the shopper is asking about products already shown.',
+    'When the shopper describes a project or space - even vaguely ("redesigning my garage") - always include best-guess suggestions in the same turn. Ask a clarifying question in the reply if useful, but never instead of suggesting. When the shopper explicitly asks to see or show products ("show me hooks and benches"), suggestions are MANDATORY that turn. Only leave suggestions null when they are asking about products already shown.',
+    'Suggest only product kinds the vocabulary actually carries; if the natural idea (say, a cart) has no tag, choose the nearest real kind and say so in the reply. If the context shows a previous suggestion matched 0 products, adjust it (raise the cap, change the kind) and acknowledge that.',
     'Suggestions must be SPECIFIC enough to shop from: one category plus the one or two most specific tags that fit (a suggestion matching a whole category is too broad). Use the full plan fields for cleverness: priceMin for a splurge pick, priceMax against the digest\'s real price tiers for budget picks, minReviews for crowd-proven picks, sort newest for arrivals. Pairs of suggestions that answer each other ("the crowd favorite" / "the same idea for less") are welcome. The shopper sees each suggestion\'s top products ranked by trusted reviews.',
     'Hard rules: products, prices, ratings, and review counts exist ONLY as given in the catalog digest and context below - cite those freely by name when comparing or answering, but never invent, guess, or extrapolate ones that are not provided. Product suggestions happen only through the suggestions field; a deterministic engine runs them over the real catalog. When you reference design ideas, use the provided principles by name; do not cite sources you were not given.',
     `Catalog digest (real numbers; use them for budget advice, brand character, standouts):\n${catalogDigest(catalog)}`,

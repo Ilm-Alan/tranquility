@@ -260,7 +260,19 @@ function SuggestionShelf({
     return { plan: relaxed, items: runPlan(catalog.items, relaxed) };
   }, [suggestion, catalog]);
 
-  if (items.length === 0) return null;
+  // An idea that matches nothing still shows up and says so; a silently
+  // missing shelf reads as the assistant ignoring the request.
+  if (items.length === 0) {
+    return (
+      <div className="suggestion">
+        <h3>{suggestion.title}</h3>
+        <p className="suggestion-why">
+          Nothing in the catalog matches this one
+          {suggestion.plan.priceMax !== null ? ' at that price' : ''}.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="suggestion">

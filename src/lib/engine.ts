@@ -59,12 +59,12 @@ export function expandTerms(vocabulary: string[], terms: string[]): string[] {
 
     for (const f of forms) {
       if (f.length < 4) continue;
-      const near = vocabulary.filter((v) => withinOneEdit(f, v));
+      // Typos rarely hit the first letter; requiring it prevents semantic
+      // swaps like "cart" (not in the catalog) becoming "art".
+      const near = vocabulary.filter((v) => v[0] === f[0] && withinOneEdit(f, v));
       if (near.length > 0) {
-        // Typos rarely hit the first letter; prefer words that keep it.
         near.sort(
           (a, b) =>
-            Number(a[0] !== f[0]) - Number(b[0] !== f[0]) ||
             Math.abs(a.length - f.length) - Math.abs(b.length - f.length) ||
             a.localeCompare(b),
         );
