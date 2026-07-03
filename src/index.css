@@ -357,6 +357,11 @@ select {
   gap: 24px;
 }
 
+.masthead-left nav {
+  display: flex;
+  gap: 16px;
+}
+
 .nav-link {
   padding: 0;
   background: none;
@@ -542,7 +547,8 @@ select {
 
 .shelf-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(224px, 1fr));
+  /* auto-fit: a 4-item shelf fills its row instead of leaving an empty track */
+  grid-template-columns: repeat(auto-fit, minmax(224px, 1fr));
   gap: 1px;
   background: var(--hairline);
   border: 1px solid var(--hairline);
