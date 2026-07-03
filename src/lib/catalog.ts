@@ -42,6 +42,7 @@ export interface Catalog {
   categories: string[];
   brands: string[];
   tags: string[];
+  vocabulary: string[]; // every word that appears anywhere searchable
   priorRating: number; // catalog-wide mean over reviewed items
 }
 
@@ -107,6 +108,9 @@ export function normalize(raw: RawItem[], now = new Date()): Catalog {
     categories: uniqueSorted(items.map((i) => i.category)),
     brands: uniqueSorted(items.map((i) => i.brand)),
     tags: uniqueSorted(items.flatMap((i) => i.tags)),
+    vocabulary: uniqueSorted(
+      items.flatMap((i) => i.searchText.split(/[^a-z0-9]+/)).filter((w) => w.length >= 3),
+    ),
     priorRating,
   };
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadCatalog, type Catalog } from './lib/catalog';
-import { emptyPlan, runPlan, tokenize, type QueryPlan, type SortKey } from './lib/engine';
+import { emptyPlan, expandTerms, runPlan, tokenize, type QueryPlan, type SortKey } from './lib/engine';
 import { checkAssistant } from './lib/llm';
 import { ItemCard } from './components/ItemCard';
 import { Assistant } from './components/Assistant';
@@ -8,11 +8,14 @@ import { Assistant } from './components/Assistant';
 const PAGE_SIZE = 96;
 
 const SORT_LABELS: Record<SortKey, string> = {
-  trust: 'Most trusted',
+  trust: 'Top reviewed',
   'price-asc': 'Price: low to high',
   'price-desc': 'Price: high to low',
   newest: 'Newest',
 };
+
+const RATING_STEPS = [3, 3.5, 4, 4.5];
+const REVIEW_STEPS = [50, 200, 1000];
 
 const usd = (n: number) =>
   n.toLocaleString('en-US', {
@@ -44,10 +47,13 @@ export default function App() {
   const visible = results.slice(0, limit);
 
   // The search box is instant keyword search, nothing else; the assistant
-  // lives in the sidebar and applies plans through the same state.
+  // lives in the sidebar and applies plans through the same state. Terms are
+  // resolved against the catalog's vocabulary so plurals and one-letter typos
+  // still land ("towels", "towles" -> "towel").
   const setQuery = (text: string) => {
     setQueryText(text);
-    setPlan((p) => ({ ...p, terms: tokenize(text) }));
+    if (!catalog) return;
+    setPlan((p) => ({ ...p, terms: expandTerms(catalog.vocabulary, tokenize(text)) }));
   };
 
   const patchPlan = (patch: Partial<QueryPlan>) => setPlan((p) => ({ ...p, ...patch }));
@@ -103,13 +109,15 @@ export default function App() {
     ...(plan.priceMax !== null
       ? [{ label: `Under ${usd(plan.priceMax)}`, remove: () => patchPlan({ priceMax: null }) }]
       : []),
-    ...(plan.minRating !== null
-      ? [{ label: `Rated ${plan.minRating}+`, remove: () => patchPlan({ minRating: null }) }]
-      : []),
   ];
 
   const filtered =
-    queryText.trim() !== '' || chips.length > 0 || plan.categories.length > 0 || plan.inStockOnly;
+    queryText.trim() !== '' ||
+    chips.length > 0 ||
+    plan.categories.length > 0 ||
+    plan.minRating !== null ||
+    plan.minReviews !== null ||
+    !plan.inStockOnly;
 
   return (
     <main className="page">
@@ -171,11 +179,41 @@ export default function App() {
               <label className="chip chip-toggle">
                 <input
                   type="checkbox"
-                  checked={plan.inStockOnly}
-                  onChange={(e) => patchPlan({ inStockOnly: e.target.checked })}
+                  checked={!plan.inStockOnly}
+                  onChange={(e) => patchPlan({ inStockOnly: !e.target.checked })}
                 />
-                In stock only
+                Include temporarily out of stock
               </label>
+              <select
+                className="filter-select"
+                value={plan.minRating ?? ''}
+                onChange={(e) =>
+                  patchPlan({ minRating: e.target.value === '' ? null : Number(e.target.value) })
+                }
+                aria-label="Minimum rating"
+              >
+                <option value="">Any rating</option>
+                {RATING_STEPS.map((r) => (
+                  <option key={r} value={r}>
+                    Rated {r}+
+                  </option>
+                ))}
+              </select>
+              <select
+                className="filter-select"
+                value={plan.minReviews ?? ''}
+                onChange={(e) =>
+                  patchPlan({ minReviews: e.target.value === '' ? null : Number(e.target.value) })
+                }
+                aria-label="Minimum review count"
+              >
+                <option value="">Any review count</option>
+                {REVIEW_STEPS.map((r) => (
+                  <option key={r} value={r}>
+                    {r.toLocaleString('en-US')}+ reviews
+                  </option>
+                ))}
+              </select>
             </div>
             <p className="result-count" aria-live="polite">
               {results.length.toLocaleString('en-US')} of{' '}

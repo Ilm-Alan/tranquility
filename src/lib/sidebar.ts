@@ -6,7 +6,7 @@
 // product shown is real. The model invents nothing the validator would keep.
 
 import type { Catalog } from './catalog';
-import { emptyPlan, type QueryPlan, type SortKey } from './engine';
+import { emptyPlan, expandTerms, type QueryPlan, type SortKey } from './engine';
 import { DESIGN_CORPUS, type DesignPrinciple } from './designCorpus';
 import { structuredCall, type ChatMessage } from './llm';
 
@@ -26,16 +26,23 @@ export function validatePlan(input: unknown, catalog: Catalog): QueryPlan {
   plan.categories = asStrings(raw.categories).filter((c) => catalog.categories.includes(c));
   plan.brands = asStrings(raw.brands).filter((b) => catalog.brands.includes(b));
   plan.tags = asStrings(raw.tags).filter((t) => catalog.tags.includes(t));
-  plan.terms = [...new Set(
-    asStrings(raw.terms)
-      .map((t) => t.toLowerCase().trim())
-      .filter((t) => t !== '' && !t.includes(' ') && !plan.tags.includes(t)),
-  )].slice(0, 4);
+  plan.terms = expandTerms(
+    catalog.vocabulary,
+    [...new Set(
+      asStrings(raw.terms)
+        .map((t) => t.toLowerCase().trim())
+        .filter((t) => t !== '' && !t.includes(' ') && !plan.tags.includes(t)),
+    )].slice(0, 4),
+  );
   plan.priceMin = bound(raw.priceMin);
   plan.priceMax = bound(raw.priceMax);
   const rating = bound(raw.minRating);
-  plan.minRating = rating !== null ? Math.min(5, Math.max(3, rating)) : null;
-  plan.inStockOnly = raw.inStockOnly === true;
+  // Half-star steps so the rating filter control can always display the value.
+  plan.minRating =
+    rating !== null ? Math.min(5, Math.max(3, Math.round(rating * 2) / 2)) : null;
+  const reviews = bound(raw.minReviews);
+  plan.minReviews = reviews !== null ? Math.round(reviews) : null;
+  plan.inStockOnly = raw.inStockOnly !== false; // in stock unless asked otherwise
   plan.sort = SORT_KEYS.includes(raw.sort as SortKey) ? (raw.sort as SortKey) : 'trust';
   return plan;
 }
