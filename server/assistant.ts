@@ -1,16 +1,19 @@
-// The only server-side code in the project: a thin pass-through to an
-// Anthropic-compatible /v1/messages endpoint (Ollama Cloud in dev). It exists so
-// the API key stays out of the client bundle and the public repo. The client
-// sends prompt + tools; the server contributes credentials, model, and limits.
+// The only server-side code in the project: a thin pass-through to Ollama's
+// native /api/chat (cloud or local). It exists so the API key stays out of the
+// client bundle and the public repo. The client sends messages (+ optional
+// images per message); the server contributes credentials, model, and limits.
+//
+// Structured output strategy, verified against ollama.com 2026-07-03: the
+// cloud ignores full JSON-schema `format` objects (grammar enforcement is
+// local-only for now) but honors `format: "json"`, and the model complies with
+// a schema stated in the system prompt. `think: false` suppresses thinking
+// tokens, which otherwise dominate latency.
 
 export interface AssistantConfig {
-  baseUrl: string | undefined;
+  baseUrl: string | undefined; // e.g. https://ollama.com
   authToken: string | undefined;
   model: string | undefined;
 }
-
-const MAX_TOKENS = 8192; // kimi spends freely on thinking before answering; a
-// tool call that arrives after 3k thinking tokens is still cheaper than a retry
 
 export function isConfigured(cfg: AssistantConfig): boolean {
   return Boolean(cfg.baseUrl && cfg.authToken && cfg.model);
@@ -23,11 +26,11 @@ export async function callAssistant(
   if (!isConfigured(cfg)) {
     return { status: 503, body: JSON.stringify({ offline: true }) };
   }
-  const { messages, system, tools } = (clientBody ?? {}) as Record<string, unknown>;
+  const { messages, json } = (clientBody ?? {}) as Record<string, unknown>;
   if (!Array.isArray(messages) || messages.length === 0) {
     return { status: 400, body: JSON.stringify({ error: 'messages required' }) };
   }
-  const res = await fetch(`${cfg.baseUrl}/v1/messages`, {
+  const res = await fetch(`${cfg.baseUrl}/api/chat`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -35,29 +38,20 @@ export async function callAssistant(
     },
     body: JSON.stringify({
       model: cfg.model,
-      max_tokens: MAX_TOKENS,
-      ...(typeof system === 'string' ? { system } : {}),
-      ...(Array.isArray(tools) ? { tools } : {}),
+      stream: false,
+      think: false,
+      ...(json === true ? { format: 'json' } : {}),
+      options: { num_predict: 2048 },
       messages,
     }),
   });
   const body = await res.text();
   if (process.env.ASSISTANT_DEBUG) {
-    const tools = Array.isArray((clientBody as Record<string, unknown>)?.tools)
-      ? ((clientBody as Record<string, { name?: string }[]>).tools ?? []).map((t) => t.name)
-      : [];
     try {
-      const parsed = JSON.parse(body) as {
-        content?: { type: string; input?: unknown }[];
-        stop_reason?: string;
-      };
-      const blocks = parsed.content?.map((b) => b.type).join(',');
-      const toolInput = parsed.content?.find((b) => b.type === 'tool_use')?.input;
-      console.log(
-        `[assistant] tools=${tools.join(',')} status=${res.status} stop=${parsed.stop_reason} blocks=${blocks} input=${JSON.stringify(toolInput)?.slice(0, 800)}`,
-      );
+      const content = (JSON.parse(body) as { message?: { content?: string } }).message?.content;
+      console.log(`[assistant] status=${res.status} content=${(content ?? body).slice(0, 1000)}`);
     } catch {
-      console.log(`[assistant] tools=${tools.join(',')} status=${res.status} unparseable=${body.slice(0, 200)}`);
+      console.log(`[assistant] status=${res.status} unparseable=${body.slice(0, 300)}`);
     }
   }
   return { status: res.status, body };

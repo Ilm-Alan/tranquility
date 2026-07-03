@@ -7,7 +7,7 @@ import {
   type AssistantStatus,
 } from './lib/assistant';
 import { ItemCard } from './components/ItemCard';
-import { Studio } from './components/Studio';
+import { Assistant } from './components/Assistant';
 
 const PAGE_SIZE = 96;
 
@@ -34,7 +34,6 @@ export default function App() {
   // After a successful interpretation the chips carry the state; typing then
   // drafts the next utterance instead of live-replacing the plan's terms.
   const [interpreted, setInterpreted] = useState(false);
-  const [view, setView] = useState<'catalog' | 'studio'>('catalog');
 
   useEffect(() => {
     loadCatalog().then(setCatalog, (e: Error) => setLoadError(e.message));
@@ -109,9 +108,9 @@ export default function App() {
   }
 
   // Chips for the plan fields that have no dedicated control; category buttons
-  // and the stock toggle already show their own state.
-  // While typing keywords the box itself shows the terms; chips would jitter.
-  // Term chips appear only once a plan came from interpretation.
+  // and the stock toggle already show their own state. While typing keywords
+  // the box itself shows the terms; term chips appear only for interpreted or
+  // assistant-applied plans.
   const chips: { label: string; remove: () => void }[] = [
     ...(interpreted
       ? plan.terms.map((t) => ({
@@ -144,147 +143,128 @@ export default function App() {
   return (
     <main className="page">
       <header className="masthead">
-        <div className="masthead-left">
-          <h1>Downshift</h1>
-          <nav aria-label="Views">
-            <button
-              type="button"
-              className={view === 'catalog' ? 'nav-link nav-active' : 'nav-link'}
-              onClick={() => setView('catalog')}
-            >
-              Catalog
-            </button>
-            <button
-              type="button"
-              className={view === 'studio' ? 'nav-link nav-active' : 'nav-link'}
-              onClick={() => setView('studio')}
-            >
-              Design studio
-            </button>
-          </nav>
-        </div>
+        <h1>Downshift</h1>
         <p>Home goods catalog · {catalog.items.length.toLocaleString('en-US')} items</p>
       </header>
 
-      {view === 'studio' ? (
-        <Studio
+      <div className="layout">
+        <div className="main-col">
+          <section className="controls" aria-label="Search and filters">
+            <form className="controls-row" onSubmit={submitQuery}>
+              <input
+                type="search"
+                value={queryText}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={
+                  status === 'offline'
+                    ? 'Search the catalog'
+                    : interpreted
+                      ? 'Refine ("cheaper", "more like the second one") or start a new search'
+                      : 'Search, or describe what you need — "warm light for a reading nook under $100"'
+                }
+                aria-label="Search the catalog"
+              />
+              <select
+                value={plan.sort}
+                onChange={(e) => patchPlan({ sort: e.target.value as SortKey })}
+                aria-label="Sort results"
+              >
+                {Object.entries(SORT_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </form>
+            <p className="assistant-status" aria-live="polite">
+              {status === 'offline' && 'Assistant offline. Keyword search is active.'}
+              {status === 'thinking' && 'Interpreting your request… keyword matches shown meanwhile.'}
+              {status === 'failed' && 'Could not interpret that. Showing keyword matches.'}
+              {status === 'idle' && ' '}
+            </p>
+            {chips.length > 0 && (
+              <div className="controls-row chips" aria-label="Active constraints">
+                {chips.map(({ label, remove }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    className="chip chip-plan"
+                    onClick={remove}
+                    title="Remove this constraint"
+                  >
+                    {label} ×
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="controls-row chips">
+              {catalog.categories.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  className={plan.categories.includes(c) ? 'chip chip-active' : 'chip'}
+                  aria-pressed={plan.categories.includes(c)}
+                  onClick={() => toggleCategory(c)}
+                >
+                  {c}
+                </button>
+              ))}
+              <label className="chip chip-toggle">
+                <input
+                  type="checkbox"
+                  checked={plan.inStockOnly}
+                  onChange={(e) => patchPlan({ inStockOnly: e.target.checked })}
+                />
+                In stock only
+              </label>
+            </div>
+            <p className="result-count" aria-live="polite">
+              {results.length.toLocaleString('en-US')} of{' '}
+              {catalog.items.length.toLocaleString('en-US')} items
+              {filtered && (
+                <button type="button" className="clear" onClick={clearAll}>
+                  Clear all
+                </button>
+              )}
+            </p>
+          </section>
+
+          {results.length > 0 ? (
+            <>
+              <section className="grid" aria-label="Results">
+                {visible.map((item) => (
+                  <ItemCard key={item.id} item={item} />
+                ))}
+              </section>
+              {results.length > limit && (
+                <p className="show-more">
+                  <button type="button" onClick={() => setLimit(limit + PAGE_SIZE)}>
+                    Show {Math.min(PAGE_SIZE, results.length - limit)} more of{' '}
+                    {(results.length - limit).toLocaleString('en-US')} remaining
+                  </button>
+                </p>
+              )}
+            </>
+          ) : (
+            <section className="empty">
+              <p>Nothing matches that combination.</p>
+              <button type="button" onClick={clearAll}>
+                Clear search and filters
+              </button>
+            </section>
+          )}
+        </div>
+
+        <Assistant
           catalog={catalog}
           online={status !== 'offline'}
-          openInCatalog={(p) => {
-            setPlan(relaxPlan(catalog.items, p));
+          onShowPlan={(p) => {
+            setPlan(p);
             setInterpreted(true);
             setQueryText('');
-            setView('catalog');
           }}
         />
-      ) : (
-        <>
-      <section className="controls" aria-label="Search and filters">
-        <form className="controls-row" onSubmit={submitQuery}>
-          <input
-            type="search"
-            value={queryText}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              status === 'offline'
-                ? 'Search the catalog'
-                : interpreted
-                  ? 'Refine ("cheaper", "more like the second one") or start a new search'
-                  : 'Search, or describe what you need — "warm light for a reading nook under $100"'
-            }
-            aria-label="Search the catalog"
-          />
-          <select
-            value={plan.sort}
-            onChange={(e) => patchPlan({ sort: e.target.value as SortKey })}
-            aria-label="Sort results"
-          >
-            {Object.entries(SORT_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </form>
-        <p className="assistant-status" aria-live="polite">
-          {status === 'offline' && 'Assistant offline. Keyword search is active.'}
-          {status === 'thinking' && 'Interpreting your request… keyword matches shown meanwhile.'}
-          {status === 'failed' && 'Could not interpret that. Showing keyword matches.'}
-          {status === 'idle' && ' '}
-        </p>
-        {chips.length > 0 && (
-          <div className="controls-row chips" aria-label="Active constraints">
-            {chips.map(({ label, remove }) => (
-              <button
-                key={label}
-                type="button"
-                className="chip chip-plan"
-                onClick={remove}
-                title="Remove this constraint"
-              >
-                {label} ×
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="controls-row chips">
-          {catalog.categories.map((c) => (
-            <button
-              key={c}
-              type="button"
-              className={plan.categories.includes(c) ? 'chip chip-active' : 'chip'}
-              aria-pressed={plan.categories.includes(c)}
-              onClick={() => toggleCategory(c)}
-            >
-              {c}
-            </button>
-          ))}
-          <label className="chip chip-toggle">
-            <input
-              type="checkbox"
-              checked={plan.inStockOnly}
-              onChange={(e) => patchPlan({ inStockOnly: e.target.checked })}
-            />
-            In stock only
-          </label>
-        </div>
-        <p className="result-count" aria-live="polite">
-          {results.length.toLocaleString('en-US')} of{' '}
-          {catalog.items.length.toLocaleString('en-US')} items
-          {filtered && (
-            <button type="button" className="clear" onClick={clearAll}>
-              Clear all
-            </button>
-          )}
-        </p>
-      </section>
-
-      {results.length > 0 ? (
-        <>
-          <section className="grid" aria-label="Results">
-            {visible.map((item) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
-          </section>
-          {results.length > limit && (
-            <p className="show-more">
-              <button type="button" onClick={() => setLimit(limit + PAGE_SIZE)}>
-                Show {Math.min(PAGE_SIZE, results.length - limit)} more of{' '}
-                {(results.length - limit).toLocaleString('en-US')} remaining
-              </button>
-            </p>
-          )}
-        </>
-      ) : (
-        <section className="empty">
-          <p>Nothing matches that combination.</p>
-          <button type="button" onClick={clearAll}>
-            Clear search and filters
-          </button>
-        </section>
-      )}
-        </>
-      )}
+      </div>
     </main>
   );
 }
