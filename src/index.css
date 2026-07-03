@@ -90,7 +90,8 @@ select {
   border-color: var(--ink);
 }
 
-.controls-row select {
+.controls-row select,
+.filter-select {
   appearance: none;
   -webkit-appearance: none;
   padding: 10px 30px 10px 12px;
@@ -105,7 +106,8 @@ select {
   cursor: pointer;
 }
 
-.controls-row select:focus {
+.controls-row select:focus,
+.filter-select:focus {
   outline: none;
   border-color: var(--ink);
 }
@@ -650,4 +652,76 @@ select {
 
 .followups button:hover {
   border-color: var(--secondary);
+}
+
+/* --- category rail + filter toolbar --- */
+
+.cat-rail {
+  display: flex;
+  border: 1px solid var(--ink);
+  margin-bottom: 10px;
+}
+
+.cat-cell {
+  flex: 1;
+  padding: 10px 0;
+  font-size: 12.5px;
+  text-align: center;
+  background: var(--ground);
+  border: none;
+  border-left: 1px solid var(--hairline);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cat-cell:first-child {
+  border-left: none;
+}
+
+.cat-cell:hover {
+  background: var(--field);
+}
+
+.cat-active,
+.cat-active:hover {
+  background: var(--ink);
+  color: #fff;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar .result-count {
+  margin: 0;
+}
+
+.toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-select {
+  padding: 7px 28px 7px 10px;
+  font-size: 12.5px;
+}
+
+.stock-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.stock-label input {
+  margin: 0;
+  accent-color: var(--ink);
 }

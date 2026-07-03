@@ -122,7 +122,7 @@ export default function App() {
   return (
     <main className="page">
       <header className="masthead">
-        <h1>Downshift</h1>
+        <h1>Mantel</h1>
         <p>Home goods catalog · {catalog.items.length.toLocaleString('en-US')} items</p>
       </header>
 
@@ -164,66 +164,70 @@ export default function App() {
                 ))}
               </div>
             )}
-            <div className="controls-row chips">
+            <div className="cat-rail" role="group" aria-label="Categories">
               {catalog.categories.map((c) => (
                 <button
                   key={c}
                   type="button"
-                  className={plan.categories.includes(c) ? 'chip chip-active' : 'chip'}
+                  className={plan.categories.includes(c) ? 'cat-cell cat-active' : 'cat-cell'}
                   aria-pressed={plan.categories.includes(c)}
                   onClick={() => toggleCategory(c)}
                 >
                   {c}
                 </button>
               ))}
-              <label className="chip chip-toggle">
-                <input
-                  type="checkbox"
-                  checked={!plan.inStockOnly}
-                  onChange={(e) => patchPlan({ inStockOnly: !e.target.checked })}
-                />
-                Include temporarily out of stock
-              </label>
-              <select
-                className="filter-select"
-                value={plan.minRating ?? ''}
-                onChange={(e) =>
-                  patchPlan({ minRating: e.target.value === '' ? null : Number(e.target.value) })
-                }
-                aria-label="Minimum rating"
-              >
-                <option value="">Any rating</option>
-                {RATING_STEPS.map((r) => (
-                  <option key={r} value={r}>
-                    Rated {r}+
-                  </option>
-                ))}
-              </select>
-              <select
-                className="filter-select"
-                value={plan.minReviews ?? ''}
-                onChange={(e) =>
-                  patchPlan({ minReviews: e.target.value === '' ? null : Number(e.target.value) })
-                }
-                aria-label="Minimum review count"
-              >
-                <option value="">Any review count</option>
-                {REVIEW_STEPS.map((r) => (
-                  <option key={r} value={r}>
-                    {r.toLocaleString('en-US')}+ reviews
-                  </option>
-                ))}
-              </select>
             </div>
-            <p className="result-count" aria-live="polite">
-              {results.length.toLocaleString('en-US')} of{' '}
-              {catalog.items.length.toLocaleString('en-US')} items
-              {filtered && (
-                <button type="button" className="clear" onClick={clearAll}>
-                  Clear all
-                </button>
-              )}
-            </p>
+            <div className="toolbar">
+              <p className="result-count" aria-live="polite">
+                {results.length.toLocaleString('en-US')} of{' '}
+                {catalog.items.length.toLocaleString('en-US')} items
+                {filtered && (
+                  <button type="button" className="clear" onClick={clearAll}>
+                    Clear all
+                  </button>
+                )}
+              </p>
+              <div className="toolbar-filters">
+                <select
+                  className="filter-select"
+                  value={plan.minRating ?? ''}
+                  onChange={(e) =>
+                    patchPlan({ minRating: e.target.value === '' ? null : Number(e.target.value) })
+                  }
+                  aria-label="Minimum rating"
+                >
+                  <option value="">Any rating</option>
+                  {RATING_STEPS.map((r) => (
+                    <option key={r} value={r}>
+                      Rated {r}+
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="filter-select"
+                  value={plan.minReviews ?? ''}
+                  onChange={(e) =>
+                    patchPlan({ minReviews: e.target.value === '' ? null : Number(e.target.value) })
+                  }
+                  aria-label="Minimum review count"
+                >
+                  <option value="">Any review count</option>
+                  {REVIEW_STEPS.map((r) => (
+                    <option key={r} value={r}>
+                      {r.toLocaleString('en-US')}+ reviews
+                    </option>
+                  ))}
+                </select>
+                <label className="stock-label">
+                  <input
+                    type="checkbox"
+                    checked={!plan.inStockOnly}
+                    onChange={(e) => patchPlan({ inStockOnly: !e.target.checked })}
+                  />
+                  Include temporarily out of stock
+                </label>
+              </div>
+            </div>
           </section>
 
           {results.length > 0 ? (

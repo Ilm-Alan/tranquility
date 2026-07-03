@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Catalog, Item } from '../lib/catalog';
 import { relaxPlan, runPlan, type QueryPlan } from '../lib/engine';
 import type { ChatMessage } from '../lib/llm';
@@ -33,6 +33,12 @@ export function Assistant({
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Keep the newest turn in view; replies otherwise land below the fold.
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: 'smooth' });
+  }, [turns, busy]);
 
   // The latest suggestions, with their plans executed against the real catalog.
   const latestSuggestions = useMemo(() => {
@@ -131,7 +137,7 @@ export function Assistant({
   return (
     <aside className="sidebar" aria-label="Design assistant">
       <div className="sidebar-head">Design assistant</div>
-      <div className="sidebar-body">
+      <div className="sidebar-body" ref={bodyRef}>
         {turns.length === 0 && (
           <p className="sidebar-hint">
             Describe what you're working on — "I'm thinking of redesigning my
