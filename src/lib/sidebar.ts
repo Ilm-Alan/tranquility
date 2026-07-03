@@ -6,10 +6,39 @@
 // product shown is real. The model invents nothing the validator would keep.
 
 import type { Catalog } from './catalog';
-import type { QueryPlan } from './engine';
-import { validatePlan } from './assistant';
+import { emptyPlan, type QueryPlan, type SortKey } from './engine';
 import { DESIGN_CORPUS, type DesignPrinciple } from './designCorpus';
 import { structuredCall, type ChatMessage } from './llm';
+
+const SORT_KEYS: SortKey[] = ['trust', 'price-asc', 'price-desc', 'newest'];
+
+// Strict whitelist against the real catalog. Filters invalid values; never
+// invents or reshapes. A plan that filters down to nothing stays nothing.
+export function validatePlan(input: unknown, catalog: Catalog): QueryPlan {
+  const raw = (input ?? {}) as Record<string, unknown>;
+  const plan = emptyPlan();
+
+  const asStrings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  const bound = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
+
+  plan.categories = asStrings(raw.categories).filter((c) => catalog.categories.includes(c));
+  plan.brands = asStrings(raw.brands).filter((b) => catalog.brands.includes(b));
+  plan.tags = asStrings(raw.tags).filter((t) => catalog.tags.includes(t));
+  plan.terms = [...new Set(
+    asStrings(raw.terms)
+      .map((t) => t.toLowerCase().trim())
+      .filter((t) => t !== '' && !t.includes(' ') && !plan.tags.includes(t)),
+  )].slice(0, 4);
+  plan.priceMin = bound(raw.priceMin);
+  plan.priceMax = bound(raw.priceMax);
+  const rating = bound(raw.minRating);
+  plan.minRating = rating !== null ? Math.min(5, Math.max(3, rating)) : null;
+  plan.inStockOnly = raw.inStockOnly === true;
+  plan.sort = SORT_KEYS.includes(raw.sort as SortKey) ? (raw.sort as SortKey) : 'trust';
+  return plan;
+}
 
 export interface SpaceRead {
   room: string;
@@ -31,6 +60,7 @@ export interface ConsultResult {
   reply: string;
   space: SpaceRead | null;
   suggestions: Suggestion[];
+  followups: string[];
 }
 
 // Lexical retrieval over the authored corpus. Deterministic and inspectable;
@@ -107,8 +137,14 @@ function consultSchema(catalog: Catalog, principles: DesignPrinciple[]): object 
           required: ['title', 'why', 'principle', 'tags', 'categories', 'terms', 'priceMax', 'inStockOnly'],
         },
       },
+      followups: {
+        type: ['array', 'null'],
+        items: { type: 'string' },
+        description:
+          '2-4 short options the shopper could tap as their next message: direct answers to any question you asked, or natural next steps. Each under 8 words, first person ("It\'s a small powder room"). null only if nothing sensible.',
+      },
     },
-    required: ['reply', 'space', 'suggestions'],
+    required: ['reply', 'space', 'suggestions', 'followups'],
   };
 }
 
@@ -157,6 +193,10 @@ function validateConsult(
     reply: r.reply,
     space: validateSpace(r.space),
     suggestions,
+    followups: strings(r.followups)
+      .map((f) => f.trim())
+      .filter((f) => f !== '' && f.length <= 60)
+      .slice(0, 4),
   };
 }
 
@@ -169,6 +209,7 @@ export function consultSystem(
   return [
     'You are the design assistant for a home goods catalog, embedded next to the search results. You help the shopper think about their space and find pieces for it. Keep replies short and plain-text.',
     'When the shopper describes a project or space - even vaguely ("redesigning my garage") - always include best-guess suggestions in the same turn. Ask a clarifying question in the reply if useful, but never instead of suggesting. Only leave suggestions null when the shopper is asking about products already shown.',
+    'Suggestions must be SPECIFIC enough to shop from: one category plus the one or two most specific tags that fit (a suggestion matching a whole category is too broad). The shopper sees the top few products of each suggestion, ranked by trusted reviews.',
     'Hard rules: products, prices, ratings, and review counts exist ONLY as given in the provided context - cite those freely by name when comparing or answering, but never invent, guess, or extrapolate ones that are not provided. Product suggestions happen only through the suggestions field; a deterministic engine runs them over the real catalog. When you reference design ideas, use the provided principles by name; do not cite sources you were not given.',
     `Design principles retrieved for this conversation:\n${principles.map((p) => `- ${p.name}: ${p.body}`).join('\n')}`,
     `Catalog vocabulary for suggestion fields:\nCategories: ${catalog.categories.join(', ')}.\nTags: ${catalog.tags.join(', ')}.`,

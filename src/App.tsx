@@ -1,11 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { loadCatalog, type Catalog } from './lib/catalog';
-import { emptyPlan, relaxPlan, runPlan, tokenize, type QueryPlan, type SortKey } from './lib/engine';
-import {
-  checkAssistant,
-  interpretQuery,
-  type AssistantStatus,
-} from './lib/assistant';
+import { emptyPlan, runPlan, tokenize, type QueryPlan, type SortKey } from './lib/engine';
+import { checkAssistant } from './lib/llm';
 import { ItemCard } from './components/ItemCard';
 import { Assistant } from './components/Assistant';
 
@@ -30,14 +26,11 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [queryText, setQueryText] = useState('');
   const [plan, setPlan] = useState<QueryPlan>(emptyPlan());
-  const [status, setStatus] = useState<AssistantStatus>('offline');
-  // After a successful interpretation the chips carry the state; typing then
-  // drafts the next utterance instead of live-replacing the plan's terms.
-  const [interpreted, setInterpreted] = useState(false);
+  const [online, setOnline] = useState(false);
 
   useEffect(() => {
     loadCatalog().then(setCatalog, (e: Error) => setLoadError(e.message));
-    checkAssistant().then((ok) => setStatus(ok ? 'idle' : 'offline'));
+    checkAssistant().then(setOnline);
   }, []);
 
   const results = useMemo(
@@ -50,30 +43,11 @@ export default function App() {
   useEffect(() => setLimit(PAGE_SIZE), [plan]);
   const visible = results.slice(0, limit);
 
+  // The search box is instant keyword search, nothing else; the assistant
+  // lives in the sidebar and applies plans through the same state.
   const setQuery = (text: string) => {
     setQueryText(text);
-    if (!interpreted) setPlan((p) => ({ ...p, terms: tokenize(text) }));
-    if (status === 'failed') setStatus('idle');
-  };
-
-  const submitQuery = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!catalog || status === 'offline' || status === 'thinking') return;
-    const query = queryText.trim();
-    if (!query) return;
-    setStatus('thinking');
-    const next = await interpretQuery(query, catalog, plan, results);
-    if (next) {
-      setPlan(relaxPlan(catalog.items, next));
-      setInterpreted(true);
-      setQueryText('');
-      setStatus('idle');
-    } else {
-      // Fall back to treating the words as plain keywords, and say so.
-      setPlan((p) => ({ ...p, terms: tokenize(query) }));
-      setInterpreted(false);
-      setStatus('failed');
-    }
+    setPlan((p) => ({ ...p, terms: tokenize(text) }));
   };
 
   const patchPlan = (patch: Partial<QueryPlan>) => setPlan((p) => ({ ...p, ...patch }));
@@ -88,8 +62,6 @@ export default function App() {
   const clearAll = () => {
     setQueryText('');
     setPlan(emptyPlan());
-    setInterpreted(false);
-    if (status === 'failed') setStatus('idle');
   };
 
   if (loadError) {
@@ -107,12 +79,11 @@ export default function App() {
     );
   }
 
-  // Chips for the plan fields that have no dedicated control; category buttons
-  // and the stock toggle already show their own state. While typing keywords
-  // the box itself shows the terms; term chips appear only for interpreted or
-  // assistant-applied plans.
+  // Chips for plan fields that have no dedicated control. Term chips appear
+  // only when the box is empty (terms applied by the assistant); while typing,
+  // the box itself is the display.
   const chips: { label: string; remove: () => void }[] = [
-    ...(interpreted
+    ...(queryText.trim() === ''
       ? plan.terms.map((t) => ({
           label: t,
           remove: () => patchPlan({ terms: plan.terms.filter((x) => x !== t) }),
@@ -138,7 +109,7 @@ export default function App() {
   ];
 
   const filtered =
-    chips.length > 0 || plan.categories.length > 0 || plan.inStockOnly;
+    queryText.trim() !== '' || chips.length > 0 || plan.categories.length > 0 || plan.inStockOnly;
 
   return (
     <main className="page">
@@ -150,18 +121,12 @@ export default function App() {
       <div className="layout">
         <div className="main-col">
           <section className="controls" aria-label="Search and filters">
-            <form className="controls-row" onSubmit={submitQuery}>
+            <form className="controls-row" onSubmit={(e) => e.preventDefault()}>
               <input
                 type="search"
                 value={queryText}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={
-                  status === 'offline'
-                    ? 'Search the catalog'
-                    : interpreted
-                      ? 'Refine ("cheaper", "more like the second one") or start a new search'
-                      : 'Search, or describe what you need — "warm light for a reading nook under $100"'
-                }
+                placeholder="Search the catalog"
                 aria-label="Search the catalog"
               />
               <select
@@ -176,12 +141,6 @@ export default function App() {
                 ))}
               </select>
             </form>
-            <p className="assistant-status" aria-live="polite">
-              {status === 'offline' && 'Assistant offline. Keyword search is active.'}
-              {status === 'thinking' && 'Interpreting your request… keyword matches shown meanwhile.'}
-              {status === 'failed' && 'Could not interpret that. Showing keyword matches.'}
-              {status === 'idle' && ' '}
-            </p>
             {chips.length > 0 && (
               <div className="controls-row chips" aria-label="Active constraints">
                 {chips.map(({ label, remove }) => (
@@ -257,10 +216,9 @@ export default function App() {
 
         <Assistant
           catalog={catalog}
-          online={status !== 'offline'}
+          online={online}
           onShowPlan={(p) => {
             setPlan(p);
-            setInterpreted(true);
             setQueryText('');
           }}
         />

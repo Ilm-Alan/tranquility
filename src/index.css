@@ -91,11 +91,18 @@ select {
 }
 
 .controls-row select {
-  padding: 10px 10px;
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 10px 30px 10px 12px;
   font-size: 13px;
-  background: var(--ground);
+  color: var(--ink);
+  background-color: var(--ground);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M0 0h9L4.5 6z' fill='%2300112c'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
   border: 1px solid var(--hairline);
   border-radius: 0;
+  cursor: pointer;
 }
 
 .controls-row select:focus {
@@ -103,12 +110,6 @@ select {
   border-color: var(--ink);
 }
 
-.assistant-status {
-  margin: 0 0 10px;
-  font-size: 12.5px;
-  color: var(--secondary);
-  min-height: 17px;
-}
 
 .chips {
   flex-wrap: wrap;
@@ -572,4 +573,81 @@ select {
   border-color: var(--hairline);
   color: var(--muted);
   cursor: default;
+}
+
+/* --- sidebar: mini shelves + follow-up chips --- */
+
+.suggestion h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.suggestion-why {
+  margin: 5px 0 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--secondary);
+}
+
+.mini-shelf {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.mini-shelf li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.mini-title {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.mini-meta {
+  font-size: 11.5px;
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.view-all {
+  margin-top: 8px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+
+.followups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 10px;
+}
+
+.followups button {
+  padding: 6px 11px;
+  font-size: 12px;
+  background: var(--ground);
+  border: 1px solid var(--hairline);
+  border-radius: 0;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.followups button:hover {
+  border-color: var(--secondary);
 }
