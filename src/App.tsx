@@ -119,15 +119,15 @@ export default function App() {
 
   // Chips for the plan fields that have no dedicated control; category buttons
   // and the stock toggle already show their own state.
+  // While typing keywords the box itself shows the terms; chips would jitter.
+  // Term chips appear only once a plan came from interpretation.
   const chips: { label: string; remove: () => void }[] = [
-    ...plan.terms.map((t) => ({
-      label: t,
-      remove: () => {
-        const terms = plan.terms.filter((x) => x !== t);
-        patchPlan({ terms });
-        setQueryText(terms.join(' '));
-      },
-    })),
+    ...(interpreted
+      ? plan.terms.map((t) => ({
+          label: t,
+          remove: () => patchPlan({ terms: plan.terms.filter((x) => x !== t) }),
+        }))
+      : []),
     ...plan.brands.map((b) => ({
       label: b,
       remove: () => patchPlan({ brands: plan.brands.filter((x) => x !== b) }),

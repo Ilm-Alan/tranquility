@@ -93,14 +93,14 @@ export function normalizePlan(input: unknown, catalog: Catalog): QueryPlan {
   const bound = (v: unknown): number | null =>
     typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
 
-  plan.terms = [...new Set(
-    strings(raw.terms)
-      .flatMap((t) => t.toLowerCase().split(/\s+/))
-      .filter(Boolean),
-  )].slice(0, 5);
   plan.categories = strings(raw.categories).filter((c) => catalog.categories.includes(c));
   plan.brands = strings(raw.brands).filter((b) => catalog.brands.includes(b));
   plan.tags = strings(raw.tags).filter((t) => catalog.tags.includes(t));
+  plan.terms = [...new Set(
+    strings(raw.terms)
+      .flatMap((t) => t.toLowerCase().split(/\s+/))
+      .filter((t) => t && !plan.tags.includes(t)), // a chosen tag already covers it
+  )].slice(0, 5);
   plan.priceMin = bound(raw.priceMin);
   plan.priceMax = bound(raw.priceMax);
   const rating = bound(raw.minRating);

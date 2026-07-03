@@ -24,7 +24,7 @@ export function ItemCard({ item }: { item: Item }) {
             <small>No image</small>
           </div>
         )}
-        {!item.inStock && <span className="badge">Out of stock</span>}
+        {!item.inStock && <span className="badge badge-out">Sold out</span>}
         {item.inStock && item.comingSoon && <span className="badge">Coming soon</span>}
       </div>
       <div className="card-body">
