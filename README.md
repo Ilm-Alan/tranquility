@@ -5,6 +5,10 @@ Downshift founding engineer take-home. Search is instant, ranking and filters
 run on the review signal, and a design assistant in the sidebar turns "I'm
 thinking of redesigning my garage" into real products from the catalog.
 
+Live demo: https://ilm-alan.github.io/tranquility/ (search, ranking, and
+filters only; the demo carries no model key, so the assistant shows as offline
+there. Run it locally with a key to use the assistant.)
+
 ## Running it
 
 ```
@@ -86,8 +90,9 @@ React, TypeScript, Vite. The catalog normalizes once at load. Every search,
 filter, and AI suggestion compiles to one QueryPlan type, and the engine that
 runs it is about 150 lines of pure functions (`src/lib/engine.ts`). The only
 server code is a small proxy that keeps the key out of the client
-(`server/assistant.ts`), mounted by the Vite dev server locally and as a
-serverless function in the deployed demo.
+(`server/assistant.ts`), mounted by the Vite dev server locally; `api/` holds
+the same handler as a serverless function for hosts that run one. The static
+GitHub Pages demo has no server, so it runs without the assistant.
 
 There is no test suite; that was the timebox call. The engine is pure
 functions verified against the live page as I built. With one more hour,

@@ -120,7 +120,7 @@ export function normalize(raw: RawItem[], now = new Date()): Catalog {
 }
 
 export async function loadCatalog(): Promise<Catalog> {
-  const res = await fetch('/items.json');
+  const res = await fetch(`${import.meta.env.BASE_URL}items.json`);
   if (!res.ok) throw new Error(`Failed to load catalog: ${res.status}`);
   return normalize((await res.json()) as RawItem[]);
 }

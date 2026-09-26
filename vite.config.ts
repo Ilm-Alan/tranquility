@@ -45,6 +45,7 @@ function assistantProxy(cfg: AssistantConfig): Plugin {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
+    base: env.PAGES_BASE || '/',
     plugins: [
       react(),
       assistantProxy({
